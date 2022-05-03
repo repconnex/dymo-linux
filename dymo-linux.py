@@ -20,7 +20,7 @@ import subprocess
 
 from cairosvg import svg2png
 
-class DymoWebServiceClone:
+class DymoLinux:
     def __init__(self):
         if len(sys.argv) > 1:
             location = sys.argv[1]
@@ -30,8 +30,8 @@ class DymoWebServiceClone:
                 quit()
 
         else:
-            for location in ('dymo-web-service-clone.ini', '/etc/dymo-web-service-clone.ini',
-                             '~/.config/dymo-web-service.clone.ini'):
+            for location in ('dymo-linux.ini', '/etc/dymo-linux.ini',
+                             '~/.config/dymo-linux.ini'):
                 try: os.stat(location)
                 except FileNotFoundError:
                     location = None
@@ -45,13 +45,13 @@ class DymoWebServiceClone:
         self.config = configparser.ConfigParser()
         self.config.read(location)
         
-        self.dpi = self.config.getint('DymoWebServiceClone', 'dpi')
-        self.printer = self.config.get('DymoWebServiceClone', 'printer', fallback = None)
-        self.debug = self.config.getboolean('DymoWebServiceClone', 'debug', fallback = False)
-        self.fakeprint = self.config.getboolean('DymoWebServiceClone', 'fakeprint', fallback = False)
+        self.dpi = self.config.getint('DymoLinux', 'dpi')
+        self.printer = self.config.get('DymoLinux', 'printer', fallback = None)
+        self.debug = self.config.getboolean('DymoLinux', 'debug', fallback = False)
+        self.fakeprint = self.config.getboolean('DymoLinux', 'fakeprint', fallback = False)
 
-        self.sslcert = self.config.get('DymoWebServiceClone', 'sslcert')
-        self.sslkey = self.config.get('DymoWebServiceClone', 'sslkey')
+        self.sslcert = self.config.get('DymoLinux', 'sslcert')
+        self.sslkey = self.config.get('DymoLinux', 'sslkey')
 
         if self.debug: logging.basicConfig(level = logging.DEBUG)
         else: logging.basicConfig(level = logging.INFO)
@@ -141,7 +141,7 @@ class DymoWebServiceClone:
             )
         )
 
-dymo = DymoWebServiceClone()
+dymo = DymoLinux()
 
 class DymoRequestHandler(http.server.BaseHTTPRequestHandler):
     def respond_with_data(self, data, content_type = 'text/html', code = 200):
