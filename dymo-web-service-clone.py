@@ -7,11 +7,7 @@ import configparser
 import http.server
 import urllib
 import ssl
-
-try:
-    import xml.etree.cElementTree as ET
-except ImportError:
-    import xml.etree.ElementTree as ET
+import requests
 
 import os
 import sys
@@ -78,51 +74,27 @@ class DymoWebServiceClone:
         self.job_counter = 1
         self.print_counter = 1
 
-    def print_label(self, data):
+    def print_label(self, pdf_url):
+
         jobnum = self.job_counter
         self.job_counter += 1
         
-        thread = threading.Thread(target = self.render_svg, args = (data, jobnum))
+        thread = threading.Thread(target = self.download_pdf, args = (pdf_url, jobnum))
         thread.start()
 
-    # Renders SVG to file, adds to internal print queue
-    def render_svg(self, data, jobnum):
+    # Downloads a PDF and adds to the internal print queue
+    def download_pdf(self, pdf_url, jobnum):
         logging.debug('Processing job #{}'.format(jobnum))
-        svgfile = None
         
-        for label in self.labels:
-            if label.get('hasfield'):
-                if label['hasfield'] in data:
-                    svgfile = label['svgfile']
-                    break
-            else:
-                svgfile = label['svgfile']
-        
-        if not svgfile:
-            logger.error('No label conditions match data, aborting print job #{}.'.format(jobnum))
-            return
-    
-        tree = ET.parse(svgfile)
-        root = tree.getroot()
-        
-        # Finds all tspan elements, formats them with label data. The weird selector is due to how ETree handles namespaces or something. 
-        for tspan in root.iter('{http://www.w3.org/2000/svg}tspan'):
-            if tspan.text:
-                try:
-                    tspan.text = tspan.text.format(**data)
-                except KeyError as e:
-                    logging.warn('Label data does not contain property "{}"'.format(e.args[0]))
-        
-        outfilename = os.path.join(tempfile.gettempdir(), 'dymo-web-service-generated-{}.png'.format(jobnum))
-        
-        svg2png(
-            bytestring = ET.tostring(root, encoding = 'utf8', method = 'xml'),
-            dpi = self.dpi,
-            write_to = outfilename
-        )
+        print('pdf_url = #{}'.format(pdf_url[0]))
+
+        outfilename = os.path.join(tempfile.gettempdir(), 'dymo-label-{}.pdf'.format(jobnum))
+
+        logging.debug('pdf_url = #{}'.format(pdf_url))	
+        r = requests.get(pdf_url[0], allow_redirects=True)
+        open(outfilename, 'wb').write(r.content)
         
         self.add_job(outfilename)
-        
         logging.debug('Rendered job #{}'.format(jobnum))
 
     def add_job(self, filename):
@@ -235,17 +207,7 @@ class DymoRequestHandler(http.server.BaseHTTPRequestHandler):
             length = int(self.headers['Content-Length'])
             postdata = urllib.parse.parse_qs(self.rfile.read(length).decode('utf-8'))
             
-            tree = ET.fromstring(postdata['labelSetXml'][0])
-            
-            # For each label record in tree, extract key-value pairs into labeldata dict, then print.
-            for record in tree.iter('LabelRecord'):
-                labeldata = {}
-                for od in record.iter('ObjectData'):
-                    labeldata[od.attrib['Name']] = od.text
-                
-                logging.debug('Label data: {}'.format(labeldata))
-
-                dymo.print_label(labeldata)
+            dymo.print_label(postdata['pdfUrl'])
 
             self.respond_with_data('')
 
